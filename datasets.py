@@ -3,6 +3,7 @@ import torch
 import pandas as pd
 import json
 from PIL import Image
+from torchvision.transforms import transforms
 
 
 class ImageCaptionDataset(Dataset):
@@ -11,7 +12,7 @@ class ImageCaptionDataset(Dataset):
         self.ds_type = ds_type
         self.data_path=json.load(open(params, 'r'))["params"]["data_path"]
         self.dataset = pd.read_csv(local_dataset)
-
+        self.to_tensor = transforms.ToTensor()
         self.transform_im = transform_im
         self.transform_cap = transform_cap
         self.captions = []
@@ -28,7 +29,8 @@ class ImageCaptionDataset(Dataset):
         caption_path = self.data_path + "/captions/"+self.ds_type+"/"+location+"/"+doc_id+".txt"
         caption = open(caption_path, "r").read().split("\n")
         image_path = self.data_path + "/img/"+self.ds_type+"/"+location+"/"+doc_id+".jpg"
-        image = Image.open(image_path).convert("RGB")
+
+        image = self.to_tensor(Image.open(image_path).convert("RGB"))
         clas = self.dataset.Person.iloc[idx]
 
         if self.transform_im:
@@ -41,7 +43,13 @@ class ImageCaptionDataset(Dataset):
 
 
 #testing
+im_transform = torch.nn.Sequential(
+    transforms.Resize((224,224),antialias=True),
+)
 ds = ImageCaptionDataset("params.json")
-
+dl = DataLoader(ds, batch_size=8, shuffle=True)
 print(len(ds))
 print(ds[0])
+
+for i in dl:
+    print(i)
