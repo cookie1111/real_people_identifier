@@ -8,12 +8,13 @@ import torch
 from torch.utils.data import DataLoader, random_split, Subset
 from sklearn.model_selection import KFold
 from torchtext import transforms as text_transforms
+from sklearn.metrics import f1_score, accuracy_score
 
 # Hyperparameters
 BATCH_SIZE = 32
 EPOCHS = 20
 FOLDS = 5
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.001
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 im_transform = torch.nn.Sequential(
@@ -63,10 +64,12 @@ for trainidx, testidx in kfold.split(ds):
     for epoch in range(EPOCHS):
         model.train()
         total_loss = 0
+        all_labels = []
+        all_predictions = []
         for images, captions, labels in train_loader:
             images, captions, labels = images.to(DEVICE), captions.to(DEVICE), labels.to(DEVICE)
-
             captions = captions.squeeze(1)
+
             # Forward pass
             outputs = model(images, captions)
             loss = criterion(outputs.squeeze(), labels.float())
@@ -78,10 +81,19 @@ for trainidx, testidx in kfold.split(ds):
 
             total_loss += loss.item()
 
-        print(f"Epoch [{epoch + 1}/{EPOCHS}], Loss: {total_loss / len(train_loader):.4f}")
+            predicted = torch.round(torch.sigmoid(outputs)).squeeze().detach().cpu().numpy()
+            all_labels.extend(labels.cpu().numpy())
+            all_predictions.extend(predicted)
+
+        accuracy = accuracy_score(all_labels, all_predictions)
+        train_f1 = f1_score(all_labels, all_predictions)
+
+        print(f"Epoch [{epoch + 1}/{EPOCHS}], Loss: {total_loss / len(train_loader):.4f}, Train F1: {train_f1:.4f}, Train Accuracy: {accuracy:.4f}")
 
         # Validation loop
         model.eval()
+        all_labels = []
+        all_predictions = []
         with torch.no_grad():
             correct = 0
             total = 0
@@ -89,9 +101,13 @@ for trainidx, testidx in kfold.split(ds):
                 images, captions, labels = images.to(DEVICE), captions.to(DEVICE), labels.to(DEVICE)
                 captions = captions.squeeze(1)
                 outputs = model(images, captions)
-                predicted = torch.round(torch.sigmoid(outputs)).squeeze()
+                predicted = torch.round(torch.sigmoid(outputs)).squeeze().detach().cpu().numpy()
 
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+                # Store labels and predictions for F1 score computation
+                all_labels.extend(labels.cpu().numpy())
+                all_predictions.extend(predicted)
 
-            print(f"Validation Accuracy: {100 * correct / total:.2f}%")
+            #print(f"Validation Accuracy: {100 * correct / total:.2f}%")
+            val_f1 = f1_score(all_labels, all_predictions)
+            accuracy = accuracy_score(all_labels, all_predictions)
+            print(f"Validation F1 for Fold {fold}: {val_f1:.4f}, Validation Accuracy: {accuracy:.4f}")
