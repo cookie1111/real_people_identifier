@@ -7,9 +7,6 @@ from PIL import Image
 
 
 
-# WXPYTHON -> https://stackoverflow.com/questions/54503994/how-to-make-window-overlay-on-top-of-browser-games-exc-with-wxpython
-# QT -> https://stackoverflow.com/questions/25950049/creating-a-transparent-overlay-with-qt
-
 # Define the path to the main folder
 main_folder = '/media/sebastjan/663C012C3C00F8B7/Users/Sebastjan/Downloads/InstaCities1M/InstaCities1M'
 img_folder = os.path.join(main_folder, 'img')

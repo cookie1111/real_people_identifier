@@ -11,10 +11,11 @@ from torchtext import transforms as text_transforms
 from sklearn.metrics import f1_score, accuracy_score
 
 # Hyperparameters
-BATCH_SIZE = 32
+BATCH_SIZE = 256
+NUM_WORKERS = 8
 EPOCHS = 20
 FOLDS = 5
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0001
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 im_transform = torch.nn.Sequential(
@@ -47,8 +48,8 @@ for trainidx, testidx in kfold.split(ds):
     print(f"Fold {fold}/{FOLDS}")
 
     # Create data loaders for the current fold
-    train_loader = DataLoader(Subset(ds, trainidx), batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(Subset(ds, testidx), batch_size=BATCH_SIZE, shuffle=False)
+    train_loader = DataLoader(Subset(ds, trainidx), batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
+    val_loader = DataLoader(Subset(ds, testidx), batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
     resnet = init_resnet()
     roberta = init_roberta()
     model = ResNetRobertaEnsamble(num_classes=1, input_dim=256, resnet=resnet, roberta=roberta)
@@ -58,7 +59,13 @@ for trainidx, testidx in kfold.split(ds):
     # Compute class weights
     class_weights = torch.tensor([len(ds) / (2 * (len(ds) - 2000)), len(ds) / (2 * 2000)]).to(DEVICE)
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=class_weights[1])
-    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=0.01)
+
+    #gives epoch and validation accuracy
+    best_acc_val = (0,0)
+    best_f1 = (0,0)
+    all_val_acc = []
+    all_val_f1 = []
 
     # Training loop
     for epoch in range(EPOCHS):
@@ -111,3 +118,15 @@ for trainidx, testidx in kfold.split(ds):
             val_f1 = f1_score(all_labels, all_predictions)
             accuracy = accuracy_score(all_labels, all_predictions)
             print(f"Validation F1 for Fold {fold}: {val_f1:.4f}, Validation Accuracy: {accuracy:.4f}")
+            all_val_f1.append(val_f1)
+            all_val_acc.append(accuracy)
+            if val_f1 > best_f1[1]:
+                best_f1 = (epoch, val_f1)
+            if accuracy > best_acc_val[1]:
+                best_acc_val = (epoch, accuracy)
+    avg_val_accuracy = sum(all_val_acc)/epoch
+    avg_val_f1 = sum(all_val_f1)/epoch
+    print(f"\nAverage Validation Accuracy across all epochs: {avg_val_accuracy:.4f}")
+    print(f"Average Validation F1 Score across all epochs: {avg_val_f1:.4f}")
+    print(f"Best F1 Score: {best_f1[1]:.4f} at Epoch {best_f1[0]}"
+          f"\nBest Validation Accuracy: {best_acc_val[1]:.4f} at Epoch {best_acc_val[0]}")
