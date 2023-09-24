@@ -13,7 +13,7 @@ from sklearn.metrics import f1_score, accuracy_score
 # Hyperparameters
 BATCH_SIZE = 256
 NUM_WORKERS = 8
-EPOCHS = 20
+EPOCHS = 17
 FOLDS = 5
 LEARNING_RATE = 0.0001
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -39,7 +39,7 @@ text_transforms = text_transform = text_transforms.Sequential(
 )
 ds = ImageCaptionDataset("params.json", transform_im=im_transform, transform_cap=text_transforms)
 
-# Split dataset into training and validation sets
+"""# Split dataset into training and validation sets
 kfold = KFold(n_splits=FOLDS, shuffle=True, random_state=42)
 fold = 0
 
@@ -130,3 +130,47 @@ for trainidx, testidx in kfold.split(ds):
     print(f"Average Validation F1 Score across all epochs: {avg_val_f1:.4f}")
     print(f"Best F1 Score: {best_f1[1]:.4f} at Epoch {best_f1[0]}"
           f"\nBest Validation Accuracy: {best_acc_val[1]:.4f} at Epoch {best_acc_val[0]}")
+"""
+
+train_loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
+resnet = init_resnet()
+roberta = init_roberta()
+model = ResNetRobertaEnsamble(num_classes=1, input_dim=256, resnet=resnet, roberta=roberta)
+model.to(DEVICE)
+
+
+class_weights = torch.tensor([len(ds) / (2 * (len(ds) - 2000)), len(ds) / (2 * 2000)]).to(DEVICE)
+criterion = torch.nn.BCEWithLogitsLoss(pos_weight=class_weights[1])
+optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=0.01)
+for epoch in range(1, EPOCHS + 1):
+    model.train()
+    total_loss = 0
+    all_labels = []
+    all_predictions = []
+    for images, captions, labels in train_loader:
+        images, captions, labels = images.to(DEVICE), captions.to(DEVICE), labels.to(DEVICE)
+        captions = captions.squeeze(1)
+
+        # Forward pass
+        outputs = model(images, captions)
+        loss = criterion(outputs.squeeze(), labels.float())
+
+        # Backward pass and optimization
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+        predicted = torch.round(torch.sigmoid(outputs)).squeeze().detach().cpu().numpy()
+        all_labels.extend(labels.cpu().numpy())
+        all_predictions.extend(predicted)
+
+    accuracy = accuracy_score(all_labels, all_predictions)
+    train_f1 = f1_score(all_labels, all_predictions)
+
+    print(
+        f"Epoch [{epoch + 1}/{EPOCHS}], Loss: {total_loss / len(train_loader):.4f}, Train F1: {train_f1:.4f}, Train Accuracy: {accuracy:.4f}")
+
+torch.save(model.state_dict(), 'whole_set_train.pth')
+print("Model saved successfully!")

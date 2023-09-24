@@ -51,6 +51,8 @@ dfs = {x: pd.DataFrame(
 resnet = init_resnet()
 roberta = init_roberta()
 model = ResNetRobertaEnsamble(num_classes=1, input_dim=256, resnet=resnet, roberta=roberta)
+model.load_state_dict(torch.load('whole_set_train.pth'))
+model.eval()
 model.to(DEVICE)
 
 # Validation loop
