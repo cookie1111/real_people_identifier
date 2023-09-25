@@ -9,6 +9,7 @@ from torchtext import transforms as text_transforms
 from sklearn.metrics import f1_score, accuracy_score
 import json
 from PIL import Image
+from tqdm import tqdm
 
 #TODO ADD LOADING THE MODEL
 
@@ -19,7 +20,7 @@ EPOCHS = 20
 FOLDS = 5
 LEARNING_RATE = 0.0001
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
+im_tensor = transforms.ToTensor()
 im_transform = torch.nn.Sequential(
     transforms.Resize((224, 224), antialias=True),
 )
@@ -61,19 +62,28 @@ all_labels = []
 all_predictions = []
 with torch.no_grad():
     for folder in folders:
+        print(f"Processing cities in the {folder} set")
         for city in cities:
             img_path = os.path.join(img_folder, folder, city)
             caption_path = os.path.join(caption_folder, folder, city)
+
+            total_images = len([f for f in os.listdir(img_path) if f.endswith('.jpg')])
+            pbar = tqdm(total=total_images, desc=f"Processing images in {city}", ncols=100)
+
             for i, filename in enumerate(sorted(os.listdir(img_path))):
                 if filename.endswith('.jpg'):
-                    caption = text_transform(open(os.path.join(caption_path, filename[:-4] + '.txt'), 'r').read().split("\n"))
-                    image = im_transform(transforms.ToTensor((Image.open(img_path).convert("RGB"))))
-
+                    caption = text_transform(
+                        open(os.path.join(caption_path, filename[:-4] + '.txt'), 'r').read().split("\n"))
+                    image = im_transform(im_tensor((Image.open(os.path.join(img_path, filename)).convert("RGB"))))
+                    image = torch.unsqueeze(image, 0)
                     image, caption = image.to(DEVICE), caption.to(DEVICE)
-                    captions = captions.squeeze(1)
                     output = model(image, caption)
+                    output = torch.round(torch.sigmoid(output)).squeeze().detach().cpu().numpy()
+                    dfs[folder] = dfs[folder].append({"ID": filename[:-4], "city": city, "label": output.item()}, ignore_index=True)
+                    pbar.update(1)
 
-                    dfs[folder].append({"ID": filename[:-4], "city": city, "label": output.item()}, ignore_index=True)
+            pbar.close()
+
 
 
 for folder in folders:

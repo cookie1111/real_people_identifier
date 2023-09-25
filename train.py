@@ -170,7 +170,7 @@ for epoch in range(1, EPOCHS + 1):
     train_f1 = f1_score(all_labels, all_predictions)
 
     print(
-        f"Epoch [{epoch + 1}/{EPOCHS}], Loss: {total_loss / len(train_loader):.4f}, Train F1: {train_f1:.4f}, Train Accuracy: {accuracy:.4f}")
+        f"Epoch [{epoch}/{EPOCHS}], Loss: {total_loss / len(train_loader):.4f}, Train F1: {train_f1:.4f}, Train Accuracy: {accuracy:.4f}")
 
 torch.save(model.state_dict(), 'whole_set_train.pth')
 print("Model saved successfully!")
