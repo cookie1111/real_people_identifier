@@ -11,8 +11,6 @@ import json
 from PIL import Image
 from tqdm import tqdm
 
-#TODO ADD LOADING THE MODEL
-
 # Hyperparameters
 BATCH_SIZE = 256
 NUM_WORKERS = 8

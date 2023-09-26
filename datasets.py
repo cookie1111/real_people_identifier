@@ -14,8 +14,10 @@ import torchtext.transforms as text_transforms
 
 class ImageCaptionDataset(Dataset):
 
-    def __init__(self, params, local_dataset="output.csv", ds_type="train", transform_im=None, transform_cap=None,
+    def __init__(self, params, local_dataset="output.csv", city_header="City", label_header="Person", ds_type="train", transform_im=None, transform_cap=None,
                  max_tokens=256):
+        self.city_header = city_header
+        self.label_header = label_header
         self.ds_type = ds_type
         self.data_path=json.load(open(params, 'r'))["params"]["data_path"]
         self.dataset = pd.read_csv(local_dataset)
@@ -33,13 +35,13 @@ class ImageCaptionDataset(Dataset):
             idx = idx.tolist()
 
         doc_id = str(self.dataset.ID.iloc[idx])
-        location = self.dataset.City.iloc[idx]
+        location = self.dataset[self.city_header].iloc[idx]
         caption_path = self.data_path + "/captions/"+self.ds_type+"/"+location+"/"+doc_id+".txt"
         caption = open(caption_path, "r").read().split("\n")
         image_path = self.data_path + "/img/"+self.ds_type+"/"+location+"/"+doc_id+".jpg"
 
         image = self.to_tensor(Image.open(image_path).convert("RGB"))
-        clas = self.dataset.Person.iloc[idx]
+        clas = self.dataset[self.label_header].iloc[idx]
         #-print(caption)
         if self.transform_im:
             image = self.transform_im(image)
@@ -50,7 +52,7 @@ class ImageCaptionDataset(Dataset):
         return image, caption, clas
 
     def info(self):
-        self.dataset.Person.value_counts().plot.bar()
+        self.dataset[self.label_header].value_counts().plot.bar()
         plt.show()
 
 
