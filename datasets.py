@@ -51,6 +51,9 @@ class ImageCaptionDataset(Dataset):
 
         return image, caption, clas
 
+    def get_positive_label_count(self):
+        return self.dataset[self.label_header].value_counts()
+
     def info(self):
         self.dataset[self.label_header].value_counts().plot.bar()
         plt.show()
