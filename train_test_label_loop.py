@@ -43,8 +43,8 @@ text_transform = text_transforms.Sequential(
     text_transforms.PadTransform(max_length=max_seq_len, pad_value=padding_idx),
 )
 ds_train = ImageCaptionDataset("params.json","ouput_train.csv","city","label",transform_im=im_transform,transform_cap=text_transform)
-ds_test = ImageCaptionDataset("params.json","ouput_test.csv","city","label",transform_im=im_transform,transform_cap=text_transform)
-ds_val = ImageCaptionDataset("params.json","ouput_val.csv","city","label",transform_im=im_transform,transform_cap=text_transform)
+ds_test = ImageCaptionDataset("params.json","ouput_test.csv","city","label",ds_type="test",transform_im=im_transform,transform_cap=text_transform)
+ds_val = ImageCaptionDataset("params.json","ouput_val.csv","city","label",ds_type="val",transform_im=im_transform,transform_cap=text_transform)
 
 ds_overall = ConcatDataset([ds_train,ds_test,ds_val])
 
